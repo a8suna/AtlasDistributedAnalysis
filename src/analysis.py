@@ -24,22 +24,41 @@ def calc_mass(pt, eta, phi, e):
 
 def process_file(file_url):
     tree = uproot.open(file_url + ":analysis")
-# Define empty list to hold all data for this sample
     sample_data = []
 
-# Perform the cuts for each data entry in the tree
-    for data in tree.iterate(variables, library="ak"): # the data will be in the form of an awkward array
-        # We can use data[~boolean] to remove entries from the data set
-        lep_type = data['lep_type']
-        data = data[~cut_lep_type(lep_type)]
-        lep_charge = data['lep_charge']
-        data = data[~cut_lep_charge(lep_charge)]
+    for data in tree.iterate(variables, library="ak"):
 
-        data['mass'] = calc_mass(data['lep_pt'], data['lep_eta'], data['lep_phi'], data['lep_e'])
+        # Trigger cut
+        data = data[data['trigE'] | data['trigM']]
 
-        # Append data to the whole sample data list
+       
+        data = data[ak.sum(data['lep_isTrigMatched'], axis=1) >= 1]
+
+        # Transverse momentum cuts
+        data = data[data['lep_pt'][:,0] > 20]  
+        data = data[data['lep_pt'][:,1] > 15]  
+        data = data[data['lep_pt'][:,2] > 10]  
+
+        # ID and isolation
+        pid = data['lep_type']
+        data = data[
+            ak.sum(
+                ((pid == 13) & data['lep_isMediumID'] & data['lep_isLooseIso']) |
+                ((pid == 11) & data['lep_isLooseID']  & data['lep_isLooseIso']),
+                axis=1
+            ) == 4
+        ]
+
+        # Lepton type and charge cuts
+        data = data[~cut_lep_type(data['lep_type'])]
+        data = data[~cut_lep_charge(data['lep_charge'])]
+
+        # Invariant mass
+        data['mass'] = calc_mass(
+            data['lep_pt'], data['lep_eta'],
+            data['lep_phi'], data['lep_e']
+        )
+
         sample_data.append(data)
 
-    # turns sample_data back into an awkward array
-    data_A = ak.concatenate(sample_data)
-    return data_A 
+    return ak.concatenate(sample_data)
