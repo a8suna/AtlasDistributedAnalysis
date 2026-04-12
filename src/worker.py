@@ -5,19 +5,24 @@ import pika
 import time
 import os
 from analysis import process_file
+import socket
 
 #connect to broker RabbitMQ
-def connecting_rabbitmq(host="rabbitmq", retries=10, delay=5):
+def connecting_rabbitmq(host="rabbitmq", retries=15, delay=5):
     for attempt in range(retries):
         try:
-            print(f"Connecting to RabbitMQ (attempt {attempt + 1})...")
+            print(f"Connecting to rabbitmq (attempt {attempt + 1})...")
             return pika.BlockingConnection(
-                pika.ConnectionParameters(host=host, heartbeat=600, blocked_connection_timeout=300)
+                pika.ConnectionParameters(
+                    host=host,
+                    heartbeat=600,
+                    blocked_connection_timeout=300
+                )
             )
-        except pika.exceptions.AMQPConnectionError:
-            print(f"RabbitMQ not ready, waiting {delay}s...")
+        except (pika.exceptions.AMQPConnectionError, socket.gaierror) as e:
+            print(f"Not ready ({e}), waiting {delay}s...")
             time.sleep(delay)
-    raise RuntimeError("Could not connect to RabbitMQ after retries")
+    raise RuntimeError("couldn't connect to rabbitmq")
 
 #worker runs the analysis on the files
 def on_job(ch, method, properties, body):

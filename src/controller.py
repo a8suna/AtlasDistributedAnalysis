@@ -9,6 +9,7 @@ matplotlib.use('Agg')
 import time
 import json
 import pika
+import socket
 
 
 GeV = 1.0
@@ -43,15 +44,21 @@ defs = {
         'label': r'Signal ($m_H$ = 125 GeV)'
     }
 }
-def connecting_rabbitmq(host="rabbitmq", retries=10, delay =5):
+
+#retry loop to connect to broker - additionally adding socker to catch DNS errors.
+def connecting_rabbitmq(host="rabbitmq", retries=15, delay=5):
     for attempt in range(retries):
         try:
             print(f"Connecting to rabbitmq (attempt {attempt + 1})...")
             return pika.BlockingConnection(
-                pika.ConnectionParameters(host=host, heartbeat=600, blocked_connection_timeout=300)
+                pika.ConnectionParameters(
+                    host=host,
+                    heartbeat=600,
+                    blocked_connection_timeout=300
+                )
             )
-        except pika.exceptions.AMQPConnectionError:
-            print(f"rabbitmq not ready, waiting {delay}s...")
+        except (pika.exceptions.AMQPConnectionError, socket.gaierror) as e:
+            print(f"Not ready ({e}), waiting {delay}s...")
             time.sleep(delay)
     raise RuntimeError("couldn't connect to rabbitmq")
 
