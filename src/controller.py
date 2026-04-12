@@ -107,21 +107,36 @@ print(f"All {total_jobs} jobs queued")
 
 start_time = time.time() #start timing 
 # Collect results 
+
 jobs_done = 0
 
-def on_result(ch, method, properties, body):
-    global jobs_done
-    msg = json.loads(body)
-    jobs_done += 1
-    print(f"[controller] {jobs_done}/{total_jobs} complete — {msg.get('output', '')}")
-    ch.basic_ack(delivery_tag=method.delivery_tag)
-    if jobs_done >= total_jobs:
-        end_time = time.time()
-        print(f"Total processing runtime: {end_time - start_time:.2f} seconds")
-        ch.stop_consuming()
+while jobs_done < total_jobs:
+    try:
+        # reconnect fresh each time we enter this loop
+        connection = connecting_rabbitmq()
+        channel = connection.channel()
+        channel.queue_declare(queue='results', durable=True)
 
-channel.basic_consume(queue='results', on_message_callback=on_result)
-channel.start_consuming()
+        def on_result(ch, method, properties, body):
+            global jobs_done
+            msg = json.loads(body)
+            jobs_done += 1
+            print(f"[controller] {jobs_done}/{total_jobs} complete — {msg.get('output', '')}")
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            if jobs_done >= total_jobs:
+                elapsed = time.time() - processing_start
+                print(f"Total processing runtime: {elapsed:.2f} seconds")
+                ch.stop_consuming()
+
+        channel.basic_consume(queue='results', on_message_callback=on_result)
+        channel.start_consuming()
+
+    except (pika.exceptions.ConnectionClosedByBroker,
+            pika.exceptions.AMQPConnectionError,
+            pika.exceptions.AMQPHeartbeatTimeout) as e:
+        print(f"[controller] Connection lost ({e}), reconnecting in 10s... ({jobs_done}/{total_jobs} done so far)")
+        time.sleep(10)
+        # loop continues, reconnects, picks up where it left off
 
 #merge and plot results
 print("All results collected. Running merge and plot...")
