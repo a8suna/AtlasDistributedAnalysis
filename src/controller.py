@@ -7,7 +7,6 @@ from matplotlib.ticker import AutoMinorLocator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
-start_time = time.time()
 
 GeV = 1.0
 xmin = 80 * GeV
@@ -16,7 +15,8 @@ step_size = 2.5 * GeV
 lumi = 36.6
 fraction = 1.0
 
-MAX_WORKERS = 4   # number of parallel workers
+
+MAX_WORKERS = 4  # number of parallel workers
 
 defs = {
     'Data': {'dids': ['data'], 'label': 'Data'},
@@ -68,7 +68,7 @@ def run_job(job):
     sample_name, file_url, output = job
 
     cmd = [
-        "python", "src/worker.py",
+        "python", "src/workercheck.py",
         "--file", file_url,
         "--sample", sample_name,
         "--output", output,
@@ -82,6 +82,9 @@ def run_job(job):
 
 print(f"Running jobs with {MAX_WORKERS} workers...")
 
+#start timing
+start_time = time.time()
+
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
 
     futures = [executor.submit(run_job, j) for j in jobs]
@@ -92,6 +95,8 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         except Exception as e:
             print(f"Job failed: {e}")
 
+end_time = time.time()
+print(f"Total processing runtime: {end_time - start_time:.2f} seconds")
 print("All jobs finished. Merging results...")
 
 
@@ -238,9 +243,5 @@ main_axes.legend(frameon=False, fontsize=13)
 
 fig.savefig("higgs_plot.png", dpi=150, bbox_inches='tight')
 
-
-
-end_time = time.time()
-print(f"Total runtime: {end_time - start_time:.2f} seconds")
 
 plt.show()
