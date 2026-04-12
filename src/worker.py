@@ -8,7 +8,7 @@ from analysis import process_file
 import socket
 
 #connect to broker RabbitMQ
-def connecting_rabbitmq(host="rabbitmq", retries=15, delay=5):
+def connecting_rabbitmq(host="rabbitmq", retries=30, delay=10):
     for attempt in range(retries):
         try:
             print(f"Connecting to rabbitmq (attempt {attempt + 1})...")
