@@ -68,7 +68,7 @@ def run_job(job):
     sample_name, file_url, output = job
 
     cmd = [
-        "python", "src/workercheck.py",
+        "python", "src/worker.py",
         "--file", file_url,
         "--sample", sample_name,
         "--output", output,
