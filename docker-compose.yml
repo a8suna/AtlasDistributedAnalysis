@@ -1,0 +1,36 @@
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  controller:
+    build: .
+    command: python controller.py
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - results:/app/results
+      - ./output:/app/output  
+
+  worker:
+    build: .
+    command: python worker.py
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - results:/app/results  
+    deploy:
+      replicas: 2
+
+volumes:
+  results:
