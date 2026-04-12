@@ -61,30 +61,40 @@ channel = connection.channel()
 channel.queue_declare(queue='jobs',    durable=True)
 channel.queue_declare(queue='results', durable=True)
 
+# purge queues to delelte previous npz files
+channel.queue_purge(queue='jobs')
+channel.queue_purge(queue='results')
+print("[controller] Queues purged — starting fresh")
+
 atom.set_release("2025e-13tev-beta")
 samples = atom.build_dataset(defs, skim="exactly4lep", protocol="https", cache=True)
 os.makedirs("results", exist_ok=True)
 
 # Queue all of the jobs
-total_jobs = 0
-for i, (sample_name, file_url) in enumerate(
-    (name, url)
-    for name in samples
-    for url in samples[name]["list"]
-):
-    channel.basic_publish(
-        exchange='',
-        routing_key='jobs',
-        body=json.dumps({
-            "file_url":file_url,
-            "sample_name":sample_name,
-            "output":f"results/{sample_name}_{i}.npz",
-            "lumi": lumi,
-            "fraction": fraction,
-        }),
-        properties=pika.BasicProperties(delivery_mode=2),
-    )
-    total_jobs += 1
+try:
+    total_jobs = 0
+    for i, (sample_name, file_url) in enumerate(
+        (name, url)
+        for name in samples
+        for url in samples[name]["list"]
+    ):
+        channel.basic_publish(
+            exchange='',
+            routing_key='jobs',
+            body=json.dumps({
+                "file_url":    file_url,
+                "sample_name": sample_name,
+                "output":      f"results/{sample_name}_{i}.npz",
+                "lumi":        lumi,
+                "fraction":    fraction,
+            }),
+            properties=pika.BasicProperties(delivery_mode=2),
+        )
+        print(f"Queued: {sample_name} -> {file_url}")
+        total_jobs += 1
+except Exception as e:
+    print(f"ERROR during publishing: {e}")
+    raise
 
 print(f"All {total_jobs} jobs queued")
 

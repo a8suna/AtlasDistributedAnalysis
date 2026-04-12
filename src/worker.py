@@ -3,6 +3,7 @@ import numpy as np
 import awkward as ak
 import pika
 import time
+import os
 from analysis import process_file
 
 #connect to broker RabbitMQ
@@ -24,7 +25,12 @@ def on_job(ch, method, properties, body):
     job = json.loads(body)
 
     try:
-        result = process_file(**job)
+        result = process_file(
+            file_url=job["file_url"],
+            sample_name=job["sample_name"],
+            lumi=job["lumi"],
+            fraction=job["fraction"],
+        )
 
         masses = ak.to_numpy(result["mass"])
         weights = (
@@ -33,16 +39,22 @@ def on_job(ch, method, properties, body):
             else ak.to_numpy(result["totalWeight"])
         )
 
-        np.savez(job["output"], masses=masses, weights=weights)
+        os.makedirs(os.path.dirname(job["output"]), exist_ok=True)
+        np.savez(job["output"], masses=masses, weights=weights,
+                 sample=np.array([job["sample_name"]]))
 
         ch.basic_publish(
             exchange="",
             routing_key="results",
             body=json.dumps({"output": job["output"]}),
+            properties=pika.BasicProperties(delivery_mode=2),
         )
+        print(f"[worker] Saved: {job['output']}")
 
     except Exception as e:
-        print("Error:", e)
+        import traceback
+        print(f"[worker] ERROR: {e}")
+        traceback.print_exc()
 
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
