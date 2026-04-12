@@ -5,7 +5,7 @@ import pika
 import time
 from analysis import process_file
 
-
+#connect to broker RabbitMQ
 def connecting_rabbitmq(host="rabbitmq", retries=10, delay=5):
     for attempt in range(retries):
         try:
@@ -18,7 +18,7 @@ def connecting_rabbitmq(host="rabbitmq", retries=10, delay=5):
             time.sleep(delay)
     raise RuntimeError("Could not connect to RabbitMQ after retries")
 
-
+#worker runs the analysis on the files
 def on_job(ch, method, properties, body):
 
     job = json.loads(body)
