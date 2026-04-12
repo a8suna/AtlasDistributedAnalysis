@@ -124,8 +124,8 @@ while jobs_done < total_jobs:
             print(f"[controller] {jobs_done}/{total_jobs} complete — {msg.get('output', '')}")
             ch.basic_ack(delivery_tag=method.delivery_tag)
             if jobs_done >= total_jobs:
-                elapsed = time.time() - processing_start
-                print(f"Total processing runtime: {elapsed:.2f} seconds")
+                end_time = time.time() 
+                print(f"Total processing runtime: {start_time - end_time:.2f} seconds")
                 ch.stop_consuming()
 
         channel.basic_consume(queue='results', on_message_callback=on_result)
