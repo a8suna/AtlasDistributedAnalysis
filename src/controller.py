@@ -2,10 +2,13 @@ import subprocess
 import os
 import numpy as np
 import atlasopenmagic as atom
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
-from concurrent.futures import ThreadPoolExecutor, as_completed
+matplotlib.use('Agg')
 import time
+import json
+import pika
 
 
 GeV = 1.0
@@ -15,8 +18,6 @@ step_size = 2.5 * GeV
 lumi = 36.6
 fraction = 1.0
 
-
-MAX_WORKERS = 4  # number of parallel workers
 
 defs = {
     'Data': {'dids': ['data'], 'label': 'Data'},
@@ -42,65 +43,71 @@ defs = {
         'label': r'Signal ($m_H$ = 125 GeV)'
     }
 }
+def connecting_rabbitmq(host="rabbitmq", retries=10, delay =5):
+    for attempt in range(retries):
+        try:
+            print(f"Connecting to rabbitmq (attempt {attempt + 1})...")
+            return pika.BlockingConnection(
+                pika.ConnectionParameters(host=host, heartbeat=600, blocked_connection_timeout=300)
+            )
+        except pika.exceptions.AMQPConnectionError:
+            print(f"rabbitmq not ready, waiting {delay}s...")
+            time.sleep(delay)
+    raise RuntimeError("couldn't connect to rabbitmq")
+
+
+connection = connecting_rabbitmq()
+channel = connection.channel()
+channel.queue_declare(queue='jobs',    durable=True)
+channel.queue_declare(queue='results', durable=True)
 
 atom.set_release("2025e-13tev-beta")
 samples = atom.build_dataset(defs, skim="exactly4lep", protocol="https", cache=True)
-
 os.makedirs("results", exist_ok=True)
 
-#list of jobs
+# Queue all of the jobs
+total_jobs = 0
+for i, (sample_name, file_url) in enumerate(
+    (name, url)
+    for name in samples
+    for url in samples[name]["list"]
+):
+    channel.basic_publish(
+        exchange='',
+        routing_key='jobs',
+        body=json.dumps({
+            "file_url":file_url,
+            "sample_name":sample_name,
+            "output":f"results/{sample_name}_{i}.npz",
+            "lumi": lumi,
+            "fraction": fraction,
+        }),
+        properties=pika.BasicProperties(delivery_mode=2),
+    )
+    total_jobs += 1
 
-jobs = []
-i = 0
+print(f"All {total_jobs} jobs queued")
 
-for sample_name in samples:
-    for file_url in samples[sample_name]["list"]:
-        output = f"results/{sample_name}_{i}.npz"
-        jobs.append((sample_name, file_url, output))
-        i += 1
+start_time = time.time() #start timing 
+# Collect results 
+jobs_done = 0
 
-print(f"Total jobs: {len(jobs)}")
+def on_result(ch, method, properties, body):
+    global jobs_done
+    msg = json.loads(body)
+    jobs_done += 1
+    print(f"[controller] {jobs_done}/{total_jobs} complete — {msg.get('output', '')}")
+    ch.basic_ack(delivery_tag=method.delivery_tag)
+    if jobs_done >= total_jobs:
+        end_time = time.time()
+        print(f"Total processing runtime: {end_time - start_time:.2f} seconds")
+        ch.stop_consuming()
 
-#call worker through cmd
+channel.basic_consume(queue='results', on_message_callback=on_result)
+channel.start_consuming()
 
-def run_job(job):
-
-    sample_name, file_url, output = job
-
-    cmd = [
-        "python", "src/workercheck.py",
-        "--file", file_url,
-        "--sample", sample_name,
-        "--output", output,
-        "--lumi", str(lumi),
-        "--fraction", str(fraction)
-    ]
-
-    subprocess.run(cmd, check=True)
-
-# Run in parallel
-
-print(f"Running jobs with {MAX_WORKERS} workers...")
-
-#start timing
-start_time = time.time()
-
-with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-
-    futures = [executor.submit(run_job, j) for j in jobs]
-
-    for future in as_completed(futures):
-        try:
-            future.result()
-        except Exception as e:
-            print(f"Job failed: {e}")
-
-end_time = time.time()
-print(f"Total processing runtime: {end_time - start_time:.2f} seconds")
-print("All jobs finished. Merging results...")
-
-
-#merge results
+#merge and plot results
+print("All results collected. Running merge and plot...")
 
 all_data = {}
 
@@ -244,4 +251,7 @@ main_axes.legend(frameon=False, fontsize=13)
 fig.savefig("higgs_plot.png", dpi=150, bbox_inches='tight')
 
 
-plt.show()
+os.makedirs("/app/output", exist_ok=True)
+fig.savefig("/app/output/higgs_plot.png", dpi=150, bbox_inches='tight')
+print("Plot saved to /app/output/higgs_plot.png")
+plt.close()
