@@ -11,13 +11,16 @@ The system uses the following components:
 
 **- Controller** - creates jobs and collects results
 
-**- Workers** - process ROOT files and compute NumPy arrays
+**- Workers** - recive jobs and run the analysis code
+
+**- Analysis** - processes ROOT files and computes NumPy arrays
 
 **- Message broker** - distributes jobs to workers
 
+### Technologies Used
 - RabbitMQ - message queue for distributing jobs
-- Docker - containerisation
-- Docker Swarm - orchestration and scaling
+- Docker - containerisation of controller and workers
+- Docker Swarm - orchestration and scaling of workers across machines
 
 ## Running the system
 The system can be run either locally using Docker Compose or in distributed mode using Docker Swarm.
