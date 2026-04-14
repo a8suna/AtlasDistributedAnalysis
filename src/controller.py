@@ -112,7 +112,7 @@ jobs_done = 0
 
 while jobs_done < total_jobs:
     try:
-        # reconnect fresh each time we enter this loop
+        # reconnect freshl every time 
         connection = connecting_rabbitmq()
         channel = connection.channel()
         channel.queue_declare(queue='results', durable=True)
@@ -136,7 +136,7 @@ while jobs_done < total_jobs:
             pika.exceptions.AMQPHeartbeatTimeout) as e:
         print(f"[controller] Connection lost ({e}), reconnecting in 10s... ({jobs_done}/{total_jobs} done so far)")
         time.sleep(10)
-        # loop continues, reconnects, picks up where it left off
+        
 
 #merge and plot results
 print("All results collected. Running merge and plot...")
