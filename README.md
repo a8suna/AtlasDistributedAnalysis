@@ -8,8 +8,11 @@ Jobs are distributed through a message queue using RabbitMQ. Each worker process
 
 ## Architecture
 The system uses the following components:
+
 **- Controller** - creates jobs and collects results
+
 **- Workers** - process ROOT files and compute NumPy arrays
+
 **- Message broker** - distributes jobs to workers
 
 - RabbitMQ - message queue for distributing jobs
@@ -17,29 +20,66 @@ The system uses the following components:
 - Docker Swarm - orchestration and scaling
 
 ## Running the system
-### Local Deployment
-To run the containers:
-'docker compose up --build'
-To specify the number of workers, the replicas in the docker-compose.yml file should be edited.
-To retest with a different number of workers, the docker compose needs to close and restart.
-'docker compose down'
-'docker compose up --build'
+The system can be run either locally using Docker Compose or in distributed mode using Docker Swarm.
+### Local Deployment - Docker Compose
+#### Start the containers
 
-### Distributed Deployment (Docker Swarm)
-Step 1 - Intialise the Swarm
-'docker swarm init'
-Step 2 - Build the images
-'docker build -t atlas-distributed-analysis-controller:latest .'
-'docker build -t atlas-distributed-analysis-worker:latest .'
-Step 3 - Deploy the stack:
-'docker stack deploy -c docker-compose.yml atlas'
-Step 4 - Check the service status
-'docker stack services atlas'
-Step 5 - Scale workers 
-'docker service scale atlas_worker=10'
-Step 6 - check logs
-'docker service logs atlas_worker'     
-'docker service logs atlas_merger'
-Step 7 - To tear down the system and leave swarm
-'docker stack rm atlas'
-'docker swarm leave --force'
+`docker compose up --build`
+
+This command builds the Docker images and starts all required containers, including the controller, workers, and the RabbitMQ message broker.
+
+#### Changing the number of workers
+The number of worker containers is controlled by the `replicas` field in the `docker-compose.yml` file.
+
+To run the system with a different number of workers:
+
+1. Stop the running containers:
+
+`docker compose down`
+
+2. Edit the `replicas` value in `docker-compose.yml`
+
+3. Restart the system:
+
+`docker compose up --build`
+
+This will rebuild and launch the containers with the updated number of worker replicas.
+
+### Distributed Deployment - Docker Swarm
+
+To run the system across multiple machines, Docker Swarm can be used.
+
+#### Step 1 - Intialise the Swarm
+
+`docker swarm init`
+
+#### Step 2 - Build the images
+
+`docker build -t atlas-distributed-analysis-controller:latest .`
+
+`docker build -t atlas-distributed-analysis-worker:latest .`
+
+#### Step 3 - Deploy the stack:
+
+`docker stack deploy -c docker-compose.yml atlas`
+
+#### Check the service status
+
+`docker stack services atlas`
+
+#### Scale the number of workers
+
+`docker service scale atlas_worker=10`
+
+#### View logs
+Worker logs:
+`docker service logs atlas_worker`
+
+Controller log:
+`docker service logs atlas_controller`
+
+#### Step 7 - Stop the system
+
+`docker stack rm atlas`
+
+`docker swarm leave --force`
