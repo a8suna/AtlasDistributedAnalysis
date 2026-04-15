@@ -64,7 +64,7 @@ To run the system across multiple machines, Docker Swarm can be used.
 
 #### Step 3 - Deploy the stack:
 
-`docker stack deploy -c docker-compose.yml atlas`
+`docker stack deploy -c docker-stack.yml atlas`
 
 #### Check the service status
 
@@ -76,10 +76,10 @@ To run the system across multiple machines, Docker Swarm can be used.
 
 #### View logs
 Worker logs:
-`docker service logs atlas_worker`
+`docker service logs -f atlas_worker`
 
 Controller log:
-`docker service logs atlas_controller`
+`docker service logs -f atlas_controller`
 
 #### Stop the system
 
