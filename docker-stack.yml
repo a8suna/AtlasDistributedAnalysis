@@ -1,3 +1,4 @@
+#swarm
 services:
 
   rabbitmq:
