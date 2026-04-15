@@ -125,7 +125,7 @@ while jobs_done < total_jobs:
             ch.basic_ack(delivery_tag=method.delivery_tag)
             if jobs_done >= total_jobs:
                 end_time = time.time() 
-                print(f"Total processing runtime: {start_time - end_time:.2f} seconds")
+                print(f"Total processing runtime: {end_time - start_time:.2f} seconds")
                 ch.stop_consuming()
 
         channel.basic_consume(queue='results', on_message_callback=on_result)
