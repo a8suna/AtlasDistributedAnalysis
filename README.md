@@ -81,7 +81,7 @@ Worker logs:
 Controller log:
 `docker service logs atlas_controller`
 
-#### Step 7 - Stop the system
+#### Stop the system
 
 `docker stack rm atlas`
 
